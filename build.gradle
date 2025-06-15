@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'demo1'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    implementation group: 'jakarta.validation', name: 'jakarta.validation-api', version: '3.1.1'
+
+    implementation platform("org.springframework.cloud:spring-cloud-dependencies:2024.0.1") // Moorgate SR1
+    implementation "org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"
+
+
+    //for implementing 1. Adjusting Timeouts (Connect, Read, Write)
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // for implementing MeterRegistry for 6. Metrics & Instrumentation
+    // https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-actuator
+    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-actuator', version: '3.5.0'
+
+    // for implementing resilience4j for 7. Circuit Breaker / Bulkhead (Resilience4j Integration)
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.3.0'
+
+    // for implementing Custom Load-Balancing rules for  8. Custom Load-Balancing Rules (Zone/Affinity, Metadata-based Routing)
+    // https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-loadbalancer
+    implementation group: 'org.springframework.cloud', name: 'spring-cloud-starter-loadbalancer', version: '4.3.0'
+
+
+}
+
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
