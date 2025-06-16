@@ -3373,10 +3373,131 @@ Let's move on to the next one!
 
 
 
+I have a list of features to customize in RestClient, like these below, but I implemented only up to 10th, because from the
+gained experience it seems that some features are much better to be implemented with WebClient. Therefore, I now stop the experiments with
+the RestClient and will open a new project for Http Client with WebClient.
 
+1. Adjusting Timeouts (Connect, Read, Write)
+By default, the underlying HTTP client (used by Spring’s RestClient) may have timeouts that are too long (or too short) for your 
+environment. If you expect slow endpoints or want to fail fast, customizing connect/read/write timeouts is critical.
 
+2. Adding a Retry/Backoff Strategy
+Networks can be flaky. If your backend occasionally returns 5xx or times out, you might want to automatically retry a few times 
+before giving up (with exponential backoff).
 
+3. Inserting Custom Headers (e.g., Correlation ID, Auth Token)
+In a microservice world, you often want to propagate a “correlation ID” (for tracing across services) or inject an 
+Authorization: Bearer <token> header automatically on every request.
 
+4. Custom Error Decoding & Mapping to Exceptions
+By default, non‐2xx responses are turned into a generic RestClientResponseException. You might want to map, say, a 404 to a 
+UserNotFoundException or a 401 to UnauthorizedException.
+
+5. Custom JSON (Jackson) Configuration
+Suppose you want to use a custom ObjectMapper—for example, enabling a special date format, ignoring unknown fields, 
+or registering a module (e.g. JSR310, Kotlin, Protobuf). You need to tell the RestClient to use your ObjectMapper when 
+serializing/deserializing request and response bodies.
+
+6. Metrics & Instrumentation
+In production, you’ll want to track how many calls you’re making, response times, error rates, etc. You can hook in Micrometer or 
+Spring Boot’s MeterRegistry and record metrics around every request.
+
+7. Circuit Breaker / Bulkhead (Resilience4j Integration)
+Repeated failures to your backend (e.g. DB down) should not cascade into your entire system. A circuit breaker lets you “trip” 
+after N failures and avoid hammering a bad endpoint.
+
+8. Custom Load-Balancing Rules (Zone/Affinity, Metadata-based Routing)
+By default, Spring Cloud LoadBalancer uses a simple round-robin. Sometimes you want:
+Zone Affinity: Prefer instances in the same zone/region as the client.
+Metadata Filtering: Only use instances that have a specific metadata label (e.g. version=v2).
+Weighting: Give some instances higher “weight” if they’re more powerful.
+
+9. Circuit-Breaker with Fallback to a Local Stub
+Sometimes, instead of throwing an exception when the breaker is open, you want to return a default “fallback” response 
+(e.g. cached data, empty user, placeholder).
+
+10. Uploading Large Files: Tune Buffer Size / Memory Limits
+If you need to send or receive large payloads (e.g. >10 MB), the default in-memory buffering may not suffice. You might want to raise
+the max in-memory size or switch to streaming chunks.
+
+11. Proxy or Custom SSL (TrustStore) Configuration
+In corporate environments, you sometimes have to route outgoing HTTP calls through an HTTP proxy (say, corporate-proxy:8080).
+
+12. Request/Response Logging (Full Body + Headers)
+While debugging, you often want to log every outgoing request (method, URI, headers, body) and every incoming response 
+(status, headers, body). Spring’s ExchangeFilterFunction can do this, without you sprinkling logs in every controller.
+
+13. Dynamic Base URL Resolution (Non-Eureka Fallback)
+You currently use Eureka (serviceId = "backend-service") in your HttpClientInterface. But you might want a fallback to a fixed URL 
+if Eureka is down (or if the user configures some base-url in a properties file for testing).
+
+14. Custom Cookie Management
+If your backend sets a session cookie (e.g. Set-Cookie: SESSION=abc123; Path=/; HttpOnly), you may need to send that cookie 
+automatically on subsequent calls (sticky session).
+
+15. Defining Custom Error Handling Strategies by Status Family
+Maybe you want to treat all 4xx as “client failures” but still parse the body, while all 5xx should throw an exception immediately 
+(and never convert into a DTO).
+
+16. Custom DNS Resolution / Hostname Verification
+If you need to bypass DNS resolution (e.g. to hardcode an IP → hostname mapping for testing), or if you need to skip hostname 
+verification (for internal certs).
+
+17. Conditional Logic Based on Request Path or Headers
+Suppose you want different behavior when calling /user/{id} vs /user-with-data/{id}. For instance, maybe calls to /user-with-data/… 
+must carry an extra header like X-Internal-Auth: secret, whereas /user/… should not.
+
+18. Capturing Response Cookies and Propagating Them
+If your backend returns Set-Cookie: SESSION=xyz on one call, you may want to store and reuse that in subsequent calls 
+(similar to “sticky sessions” in #11 but here perhaps for a different domain).
+
+19. Bulkhead (Thread Pool) Isolation
+If your HTTP calls are expensive (e.g. large payload, slow DB), you may not want them to exhaust your main reactive event loops. 
+You can isolate them in a dedicated thread pool (“bulkhead”) so that a spike in these calls doesn’t starve CPU for other traffic.
+
+20. Custom SSL Pinning (Pin a Specific Certificate Fingerprint)
+For maximum security, you might want to verify that the server’s certificate matches a known fingerprint (public-key pinning), 
+not just that it’s signed by the CA in your trust store.
+
+21. Customizing HTTP/2 or HTTP/1.1 Features
+You might want to force HTTP/2 (for multiplexing) or explicitly disable HTTP/2 if your server doesn’t support it (and your client 
+negotiates it automatically). You can also tweak “keep-alive” settings.
+
+22. Custom Request Throttling (Rate Limiting)
+To avoid overwhelming your backend (or to respect the third-party’s rate limits), you might want to throttle outgoing 
+requests to, say, 10 QPS.
+
+23. Custom Connection Pool Settings
+By default, Reactor Netty’s connection pool size might be too small for high concurrency. You can tune max connections, pending 
+acquisition, idle time, etc.
+
+24. Custom Codec for XML, YAML, or Protobuf
+Maybe you’re talking to a legacy service that uses XML or a partner that uses Protobuf. You need to register an additional codec 
+so RestClient can automatically marshal/unmarshal.
+
+25. Conditional Circuit Breaker Per Endpoint
+Perhaps you trust /user/{id} to be quick, but /user-with-data/{id} is slow (joins multiple tables). You might want a tighter 
+circuit breaker on the slow path (e.g., trip after 3 failures), but leave the simple GET alone.
+
+26. Dynamic Connection Pool Adjustment at Runtime
+Maybe you want to throttle performance during off-peak hours (e.g. only 10 connections at night) and allow more during business 
+hours (e.g. 100 connections). You could expose an actuator endpoint to tweak connection pool sizes on the fly.
+
+27. Per-Client Logging Level (Wiretap)
+If you want to log TCP-level details (headers, wire bytes), Reactor Netty’s “wiretap” can dump low-level frames. Useful only 
+when debugging SSL handshakes or subtle protocol issues.
+
+28. Implementing a Custom “Fallback to Cache” on 404
+If your user data is sometimes stale, you want to first check a local cache. If the remote call returns 404, then you serve from 
+the cache. Otherwise, you return the remote data and repopulate cache.
+
+29. Request Batching (Combining Multiple Calls into One)
+If you have to fetch user A, B, and C in quick succession, it’s often more efficient to call /api/v1/users?ids=A,B,C once rather 
+than 3 separate /user/{id} calls. You can implement a small “batcher” layer on top of your RestClient.
+
+30. Custom Authorization Flow (OAuth2 Client Credentials)
+If your backend is secured by OAuth2, you need to fetch an access token from an auth server (e.g. Keycloak) and attach it as 
+Authorization: Bearer <token> on every request. The token needs automatic refresh before expiry.
 
 
 
