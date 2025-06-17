@@ -4,7 +4,6 @@
 In the process of learning about REST Clients, this docs were used:
          https://docs.spring.io/spring-framework/reference/integration/rest-clients.html
 
-The GPT Thread is here: https://chatgpt.com/c/68433c5f-dba8-8011-9ef4-39b0b837eb3c
 
 So far we have experimented a lot with OpenFeign client. What is its alternative?
 
